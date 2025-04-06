@@ -108,7 +108,28 @@ class GroqProcesser():
         '''
         4. Iterate through DOIs, use OpenCitations API to see how many times it was referenced. Use this to identify the most important papers?
         '''
-        pass
+        citation_number = {}
+        for paper in self.paper:
+            doi = paper["doi"]
+            APICALL = f"https://opencitations.net/api/v1/citation-count/{doi}"
+            HTTP_HEADERS = {"authorization": "feebb3c7-2e1f-4337-a7fb-c32a773cba1a"}
+            response = get(APICALL, headers=HTTP_HEADERS)
+            if response.status_code == 200:
+                data = response.json()
+                if data and 'count' in data[0]:
+                    citation_count = data[0]['count']
+                    citation_number[doi] = citation_count
+                else:
+                    raise HTTPException(response.status_code, detail="Citation Number not Found in OpenCitations Database.")
+            else:
+                    raise HTTPException(response.status_code, detail="Citation Number not Found in OpenCitations Database.")
+        top_5_papers = dict(sorted(citation_number.items(), key=lambda item: item[1], reverse=True)[:5])
+        paper_number = (len(top_5_papers))
+        if paper_number == 5:
+            return_recommendations(top_5_papers)
+        else:
+            find_additional_papers()
+        
 
     def find_additional_papers(self):
         '''
