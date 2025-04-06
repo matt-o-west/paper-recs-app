@@ -4,7 +4,7 @@ Paper recommendations app using react, fastapi and groq to interface with llms.
 
 ## Overview
 
-Our app allows the user to input a range of DOI numbers from 2 to 5 to get back papers our app recommends for further reading. This will be returned with cards in the app or by having the option to export it to a Google Doc. This program will go through each paper inputted and ask Meta’s LLaMA 4 Scout 17B (Instruct) model to get DOI numbers that are referenced in multiple papers. From that list, we rank them based on how many times they were cited. If there aren’t 5 papers from that list, we refer to Meta’s LLaMA 4 Scout 17B (Instruct) model to recommend additional papers. This helps address the problem of finding more papers to read and gather more information on a topic easily. 
+Our app allows the user to input a range of DOI numbers from 2 to 5 to get back papers our app recommends for further reading. This will be returned with cards in the app with clickable links. This program will go through each paper inputted and ask Meta’s LLaMA 4 Scout 17B (Instruct) model to get DOI numbers that are referenced in multiple papers. From that list, we rank them based on how many times they were cited. If there aren’t 5 papers from that list, we refer to Meta’s LLaMA 4 Scout 17B (Instruct) model to recommend additional papers. This helps address the problem of finding more papers to read and gather more information on a topic easily. 
 
 ## Features
 
@@ -12,7 +12,6 @@ Our app allows the user to input a range of DOI numbers from 2 to 5 to get back 
 - Get recommended papers returned to you based on their DOI numbers overlapping. The order presented is prioritized by how many times each paper is cited. 
 If there aren't 5 papers with common DOI numbers, we use Groq to interface with Meta's LLaMA 4 Scout 17B (Instruct) to get additional papers. 
 - Returned papers include links to the paper so that you can easily navigate to the recommended papers. 
-- Button to export recommended papers into a Google Doc for easy reference.
 
 ## Tech Stack
 
