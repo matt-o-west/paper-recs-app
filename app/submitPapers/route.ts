@@ -8,7 +8,7 @@ export async function POST(req: Request) {
 
   console.log('Papers:', papers)
 
-  // We're going to keep it simple and use required on the inputs, but when validating server-side we'd do so here
+  // We're using required on inputs for now, but server side validation would happen here
   if (!Array.isArray(papers) || papers.length === 0) {
     return NextResponse.json(
       { error: 'Please provide at least one valid paper DOI' },
@@ -16,22 +16,10 @@ export async function POST(req: Request) {
     )
   }
 
-  // Format DOIs if needed
-  const formattedPapers = papers.map((paper) => {
-    if (
-      /^10\.\d{4,9}\/[-._;()/:A-Z0-9]+$/i.test(paper) &&
-      !paper.startsWith('doi:')
-    ) {
-      return `doi:${paper}`
-    }
-    return paper
-  })
-
   try {
-    // This will either return the data or throw an error
-    const response = await submitPapers(formattedPapers)
+    // Submit papers and get recommendations
+    const response = await submitPapers(papers)
 
-    // If we got here, it was successful
     return NextResponse.json(response)
   } catch (error) {
     console.error('Error in route handler:', error)

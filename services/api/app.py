@@ -1,84 +1,101 @@
-## Fast API server
-from fastapi import FastAPI, HTTPException
-from typing import Union, List, Optional
+'''
+ _______    ___           _______.___________.    ___      .______    __  
+|   ____|  /   \         /       |           |   /   \     |   _  \  |  | 
+|  |__    /  ^  \       |   (----`---|  |----`  /  ^  \    |  |_)  | |  | 
+|   __|  /  /_\  \       \   \       |  |      /  /_\  \   |   ___/  |  | 
+|  |    /  _____  \  .----)   |      |  |     /  _____  \  |  |      |  | 
+|__|   /__/     \__\ |_______/       |__|    /__/     \__\ | _|      |__|
+'''
+#------------------------------------------------------------------------
+#IMPORTS AND SET UP
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from typing import Union
 from dotenv import load_dotenv
-import requests
+
+
+from groq_processing import GroqProcesser
 import uvicorn
-import json
-import groq
-import os
+from models import Paper, Papers
 
 # Load the env variables
 load_dotenv()
 
 app = FastAPI()
 
+origins = [
+    #url of frontend server
+    "http://localhost:3000"
+]
+
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Next.js port here to allow CORS
+    CORSMiddleware, 
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
-)
+    allow_headers=["*"])
 
-class Paper(BaseModel):
-    doi: str
-    name: Optional[str] = None
-    abstract: Optional[str] = None
-    references: List[str] = []
-    cited_by: List[str] = []
-    status: Optional[int] = None  # HTTP status code
-    message: Optional[str] = None  # Message for the response
+#In-Memory Database: Not an actual database, just an instance of a dictionary that'll go away when the user exits out
+memory_db = {"papers": [], "recommended": []}
 
-class Papers(BaseModel):
-    papers: List[Paper]
+gp = None 
 
-class PaperInput(BaseModel):
-    papers: List[str]
-
+#------------------------------------------------------------------------
+'''
+  _____ ___ ___ _____ ___ _  _  ___ 
+ |_   _| __/ __|_   _|_ _| \| |/ __|
+   | | | _|\__ \ | |  | || .` | (_ |
+   |_| |___|___/ |_| |___|_|\_|\___|
+'''
 # Test Endpoints
 @app.get("/")
 def read_root():
-    return {"Hello": "World"}
+    return memory_db
 
 @app.get("/items/{item_id}")
 def read_item(item_id: int, q: Union[str, None] = None):
     return {"item_id": item_id, "q": q}
 
-# Mock API endpoint
-@app.post("/recommendations/", response_model=Papers)
-async def recommend_papers(paper_input: PaperInput):
-    # Log the received DOIs
-    print(f"Received DOIs: {paper_input.papers}")
-    
-    # Mock response with two static papers
-    mock_papers = Papers(
-        papers=[
-            Paper(
-                doi="doi:10.1145/3383313.3412243",
-                name="Deep Learning-based Document Modeling for Personalized Content Recommendation",
-                abstract="In this paper, we present a deep learning-based approach to document modeling for personalized recommendation systems. We leverage neural embeddings to capture semantic relationships between documents and user preferences.",
-                references=["doi:10.1109/TPAMI.2020.2992393", "doi:10.1145/3397271.3401063"],
-                cited_by=["doi:10.1145/3383313.3412244", "doi:10.1145/3383313.3412245"]
-            ),
-            Paper(
-                doi="doi:10.1109/TPAMI.2020.2992393",
-                name="Graph Neural Networks: A Review of Methods and Applications",
-                abstract="Graph Neural Networks (GNNs) have been widely studied in various domains including social networks, knowledge graphs, recommendation, and natural language processing.",
-                references=["doi:10.1145/3383313.3412243"],
-                cited_by=["doi:10.1145/3397271.3401063", "doi:10.1145/3383313.3412245"]
-            )
-        ],
-        status=200,
-        message="Success",
-    )
+#------------------------------------------------------------------------
+'''
+  ___ _  _ ___    ___  ___ ___ _  _ _____ ___ 
+ | __| \| |   \  | _ \/ _ \_ _| \| |_   _/ __|
+ | _|| .` | |) | |  _/ (_) | || .` | | | \__ \
+ |___|_|\_|___/  |_|  \___/___|_|\_| |_| |___/
+'''
 
-    return mock_papers
+#----------
+#   GET
+#----------
+
+#Return all recommended papers; this function is asynchronous because external APIs will be called within it (a process that takes time)
+@app.get("/recommendations", response_model=Papers)
+async def get_recommended():
+
+    return Papers(papers = memory_db["recommended"], status_code=200)
+
+#----------
+#   POST
+#----------
+
+#Adds multiple papers
+@app.post("/papers", response_model=Papers)
+def add_papers(papers: Papers):
+    
+    invalid_papers = GroqProcesser.validate(papers)
+
+    if invalid_papers:
+        return Papers(papers = invalid_papers, status_code=400)
+    else:
+        memory_db["papers"].append(papers["papers"])
+        return papers
+
+#------------------------------------------------------------------------
 
 print("Starting FastAPI server...")
 
 if __name__ == "__main__":
     print("Server will be available at http://localhost:8000")
     uvicorn.run(app, host="127.0.0.1", port=8000)
+
+#------------------------------------------------------------------------
