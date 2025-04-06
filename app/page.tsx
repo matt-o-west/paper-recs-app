@@ -4,7 +4,7 @@ export default function Home() {
   return (
     <div className='grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]'>
       <main className='flex flex-col gap-[32px] row-start-2 items-center sm:items-start'>
-        <h1 className='text-2xl font-extrabold'>PaperBuddy</h1>
+        <h1 className='text-2xl font-extrabold'>PaperScout</h1>
         <p className='text-lg text-gray-200 md:w-2xl lg:w-5xl'>
           This is a web application that takes academic literature submitted by
           the user via DOI IDs. It runs them through an LLM via Groq, performs
