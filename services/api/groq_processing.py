@@ -137,7 +137,6 @@ class GroqProcesser():
     def return_recommendations(self):
         pass
 
-    #------------------------------------------------------------------------
     def validate(self):
         invalid_papers = []
         for paper in self.paper:
@@ -158,6 +157,6 @@ class GroqProcesser():
         if len(invalid_papers) > 1:
             return "Here is a list of invalid papers: {invalid_papers}"
         if len(invalid_papers) == 0:
-            for paper in self.paper
+            for paper in self.paper:
                 memory_db['papers'].append(paper)
             return self.paper
