@@ -18,7 +18,6 @@ export async function submitPapers(papers: string[]) {
       console.error('API error:', error.response?.data || error.message)
       throw new Error(`API error: ${error.response?.status || error.message}`)
     }
-
     console.error('Non-Axios error:', error)
     throw error
   }

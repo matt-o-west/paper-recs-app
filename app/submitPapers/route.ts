@@ -8,6 +8,7 @@ export async function POST(req: Request) {
 
   console.log('Papers:', papers)
 
+  // We're going to keep it simple and use required on the inputs, but when validating server-side we'd do so here
   if (!Array.isArray(papers) || papers.length === 0) {
     return NextResponse.json(
       { error: 'Please provide at least one valid paper DOI' },
