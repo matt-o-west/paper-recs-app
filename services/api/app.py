@@ -12,12 +12,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Union
 from dotenv import load_dotenv
-from groq_processing.py import validate
 
-import requests
+
+from groq_processing import GroqProcesser
 import uvicorn
-import json
-import groq_processing
 from models import Paper, Papers
 
 # Load the env variables
@@ -39,6 +37,8 @@ app.add_middleware(
 
 #In-Memory Database: Not an actual database, just an instance of a dictionary that'll go away when the user exits out
 memory_db = {"papers": [], "recommended": []}
+
+gp = None 
 
 #------------------------------------------------------------------------
 '''
@@ -82,10 +82,13 @@ async def get_recommended():
 @app.post("/papers", response_model=Papers)
 def add_papers(papers: Papers):
     
-    validate()
-    memory_db["papers"].append(papers["papers"])
+    invalid_papers = GroqProcesser.validate(papers)
 
-    return papers
+    if invalid_papers:
+        return Papers(papers = invalid_papers, status_code=400)
+    else:
+        memory_db["papers"].append(papers["papers"])
+        return papers
 
 #------------------------------------------------------------------------
 
@@ -94,3 +97,5 @@ print("Starting FastAPI server...")
 if __name__ == "__main__":
     print("Server will be available at http://localhost:8000")
     uvicorn.run(app, host="127.0.0.1", port=8000)
+
+#------------------------------------------------------------------------

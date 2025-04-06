@@ -11,13 +11,11 @@
 from fastapi import HTTPException
 import requests
 import json
-import pprint
 
 import os
 from groq import Groq
 from models import Paper, Papers
 from typing import List
-from app.py import memory_db
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -31,6 +29,16 @@ class GroqProcesser():
     def __init__(self, papers: Papers):
         '''1. From the front end, we'll receive a list of Papers (with their DOIs) that the user has submitted.'''
         self.papers = papers
+        self.common_dois = []
+        self.recommendations = []
+
+        self.groq_api_key = os.environ.get("GROQ_API_KEY")
+        if not self.groq_api_key:
+            raise HTTPException(status_code=500, detail="GROQ_API_KEY environment variable not set")
+        
+        self.oc_api_key = os.environ.get("OC_API_KEY")
+        if not self.oc_api_key:
+            raise HTTPException(status_code=500, detail="OC_API_KEY environment variable not set")
     
     def fill_in_blanks(self):
         '''2. For each DOI…
@@ -60,10 +68,11 @@ class GroqProcesser():
             #   OPEN-CITATIONS
             #---------------------
             #HOW-TO: https://opencitations.net/index/api/v2
-            TOKEN = os.environ.get("OC_API_KEY")
+            
+
             REF_API_CALL = f"https://opencitations.net/index/api/v2/references/doi:{doi}"
             CITE_API_CALL = f"https://opencitations.net/index/api/v2/citations/doi:{doi}"
-            HTTP_HEADERS = {"authorization": TOKEN}
+            HTTP_HEADERS = {"authorization": self.oc_api_key}
 
             js = self.api_call(REF_API_CALL, 'OpenCitations', HTTP_HEADERS)
             self.add_related_paper_dois(js, "cited", paper.references)
@@ -75,13 +84,10 @@ class GroqProcesser():
         '''
         3. GROQ: Send multiple json payload/file to the LLM and ask it to identify DOIs that overlap between the papers
         '''
-        # Get the Groq API key from environment variables
-        groq_api_key = os.environ.get("GROQ_API_KEY")
-        if not groq_api_key:
-            raise HTTPException(status_code=500, detail="GROQ_API_KEY environment variable not set")
+        # Get the Groq API key from environment variables - Done in __init__
         
         # Initialize the Groq client
-        client = Groq(api_key=groq_api_key)
+        client = Groq(api_key=self.groq_api_key)
         
         # Convert papers to the format expected by the LLM
         papers_data = []
@@ -91,8 +97,8 @@ class GroqProcesser():
                 "doi": paper.doi,
                 "name": paper.name,
                 "abstract": paper.abstract,
-                "references": paper.references,
-                "cited_by": paper.cited_by
+                "references": paper.references[:75],
+                "cited_by": paper.cited_by[:75]
             }
             papers_data.append(paper_dict)
         
@@ -144,6 +150,8 @@ class GroqProcesser():
                 if json_start >= 0 and json_end > json_start:
                     json_str = response_text[json_start:json_end]
                     result = json.loads(json_str)
+    
+                    self.common_dois = result['overlapping_dois']
                     return result
                 else:
                     raise ValueError("No valid JSON found in the response")
@@ -159,31 +167,64 @@ class GroqProcesser():
         4. Iterate through DOIs, use OpenCitations API to see how many times it was referenced. Use this to identify the most important papers?
         '''
         citation_number = {}
-        for paper in self.paper:
+
+        for paper in self.common_dois:
             doi = paper["doi"]
-            APICALL = f"https://opencitations.net/api/v1/citation-count/{doi}"
-            HTTP_HEADERS = {"authorization": "feebb3c7-2e1f-4337-a7fb-c32a773cba1a"}
-            response = get(APICALL, headers=HTTP_HEADERS)
+            
+            API_CALL = f"https://opencitations.net/api/v1/citation-count/{doi}"
+            HTTP_HEADERS = {"authorization": self.oc_api_key}
+
+            response = requests.get(API_CALL, headers=HTTP_HEADERS)
             if response.status_code == 200:
                 data = response.json()
                 if data and 'count' in data[0]:
                     citation_count = data[0]['count']
                     citation_number[doi] = citation_count
-        top_5_papers = dict(sorted(citation_number.items(), key=lambda item: item[1], reverse=True)[:5])
-        paper_number = (len(top_5_papers))
-        if paper_number == 5:
-            return_recommendations(top_5_papers)
-        else:
-            find_additional_papers()
+
+        top_5_papers = sorted(citation_number, key=lambda doi: citation_number[doi], reverse=True)[:5]
+        
+        self.recommendations = top_5_papers
+        print(self.recommendations)
+        return top_5_papers
 
     def find_additional_papers(self):
         '''
         5. GROQ: If we don't have at least 5 papers after going through the previous step, then ask the LLM to recommend X number of papers related to the names of each of the papers the user submitted
         '''
-        pass
+        num_papers_needed = 5 - len(self.recommendations)
+        paper_names = [paper.name for paper in self.papers]
+
+        client = Groq( api_key=self.groq_api_key)
+
+        chat_completion = client.chat.completions.create(
+            messages=[
+                # Set an optional system message. This sets the behavior of the
+                # assistant and can be used to provide specific instructions for
+                # how it should behave throughout the conversation.
+                {
+                    "role": "system",
+                    "content": "you are an expert scientific researcher who will help recommend papers to me."
+                },
+                # Set a user message for the assistant to respond to.
+                {
+                    "role": "user",
+                    "content": f"Recommended papers related to {paper_names} that are not already in the list. Please provide {num_papers_needed} papers. Return the DOIs only in the form of a string with spaces between each DOI.",
+                }
+            ],
+            model="llama-3.3-70b-versatile",
+        )
+
+        papers = (chat_completion.choices[0].message.content).split()
+        self.recommendations.extend(papers)
+        print(self.recommendations)
+        return papers
+        
     
     def return_recommendations(self):
-        pass
+        if len(self.recommendations) != 5:
+            self.find_additional_papers()
+        
+        return self.recommendations
 
     #------------------------------------------------------------------------
     #HELPER FUNCTIONS
@@ -209,45 +250,46 @@ class GroqProcesser():
                     if id_format[0] == 'd':
                         lst.append(id_format[4:])
                         break
+    
+    def validate(self, papers: Papers):
+        '''Validate the DOIs using the OpenCitations API and CrossRef API'''
 
-    def validate(self):
         invalid_papers = []
-        for paper in self.paper:
-            doi = paper["doi"]
-            APICALL = f"https://opencitations.net/api/v1/citation-count/{doi}"
+        valid_papers = []
+
+        for paper in papers:
+            doi = paper.doi
+            API_CALL = f"https://opencitations.net/api/v1/citation-count/{doi}"
             HTTP_HEADERS = {"authorization": "feebb3c7-2e1f-4337-a7fb-c32a773cba1a"}
-            response = get(APICALL, headers=HTTP_HEADERS)
+            response = requests.get(API_CALL, headers=HTTP_HEADERS)
             if response.status_code != 200:
                 invalid_papers.append(doi)
-                raise HTTPException(status_code=502, detail="DOI not found in OpenCitations API")
-        for paper in self.paper:
-            doi = paper["doi"]
+            else:
+                valid_papers.append(paper)
+        
+        for paper in valid_papers:
+            doi = paper.doi
             doi_url = doi.replace("/", "%2F")
             url = f'https://api.crossref.org/works/{doi_url}'
             r = requests.get(url)
             if r.status_code != 200:
-                raise HTTPException(status_code=502, detail="DOI not found in CrossRef API")
-        if len(invalid_papers) > 1:
-            return "Here is a list of invalid papers: {invalid_papers}"
-        if len(invalid_papers) == 0:
-            for paper in self.paper:
-                memory_db['papers'].append(paper)
-            return self.paper
+                invalid_papers.append(doi)
+        
+        return invalid_papers
 
 if __name__ == "__main__":
     with Timer(text="\nTotal elapsed time: {:.1f}"):
         papers = [
-            Paper(doi= "10.1186/1756-8722-6-59"),
-            Paper(doi="10.1046/j.1471-4159.2003.01615.x"),
-            Paper(doi="10.2307/1941948")
+            Paper(doi= "10.1677/erc.1.0978"),
+            Paper(doi="10.1016/j.gde.2006.12.005"),
+            Paper(doi="10.1093/jnci/djg123"),
+            Paper(doi="Pizza")
         ]
         gp = GroqProcesser(papers)
-        gp.fill_in_blanks()
-        print(gp.papers)
+        print(gp.validate(papers))
+        # gp.fill_in_blanks()
+        # print(gp.papers)
 
-        doi_list = []
-        for paper in gp.papers:
-            doi_list.append(paper.references)
-            doi_list.append(paper.cited_by)
-        
-        print(doi_list)
+        # print(gp.identify_common_dois())
+        # print(gp.find_additional_papers())
+        # print(gp.recommendations)
