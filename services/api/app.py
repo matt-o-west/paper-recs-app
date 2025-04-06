@@ -19,7 +19,6 @@ import uvicorn
 from models import Paper, Papers
 import json
 from fastapi.encoders import jsonable_encoder
-import asyncio
 
 # Load the env variables
 load_dotenv()
@@ -75,7 +74,7 @@ def read_item(item_id: int, q: Union[str, None] = None):
 @app.get("/recommendations", response_model=Papers)
 def get_recommended():
     gp = GroqProcesser(memory_db["papers"])
-    memory_db["recommended"] = asyncio.run(gp.return_recommendations())
+    memory_db["recommended"] = gp.return_recommendations()
     return Papers(papers = memory_db["recommended"], status_code=200)
 
 #----------
