@@ -64,7 +64,8 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## Examples
 
-(Potentially throw in some screenshots of example outputs here)
+Here is a sample output!
+![Alt text](public/Create-Next-App.png)
 
 ## Team
 
