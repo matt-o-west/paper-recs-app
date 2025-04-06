@@ -10,15 +10,14 @@
 #IMPORTS AND SET UP
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Union, List
+from typing import Union
 from dotenv import load_dotenv
 
 import requests
 import uvicorn
 import json
-import services.api.groq_processing as groq_processing
-
+import groq_processing
+from models import Paper, Papers
 
 # Load the env variables
 load_dotenv()
@@ -55,24 +54,6 @@ def read_root():
 @app.get("/items/{item_id}")
 def read_item(item_id: int, q: Union[str, None] = None):
     return {"item_id": item_id, "q": q}
-
-#------------------------------------------------------------------------
-'''
-  _____   _____   _   _  _ _____ ___ ___   __  __  ___  ___  ___ _    ___ 
- | _ \ \ / /   \ /_\ | \| |_   _|_ _/ __| |  \/  |/ _ \|   \| __| |  / __|
- |  _/\ V /| |) / _ \| .` | | |  | | (__  | |\/| | (_) | |) | _|| |__\__ \
- |_|   |_| |___/_/ \_\_|\_| |_| |___\___| |_|  |_|\___/|___/|___|____|___/
-'''
-class Paper(BaseModel):
-    id: int = None
-    doi: str
-    name: str = None
-    abstract: str = None
-    references: List[str] = [] #list of DOIs
-    cited_by: List[str] = []
-
-class Papers(BaseModel):
-    papers: List[Paper]
 
 #------------------------------------------------------------------------
 '''

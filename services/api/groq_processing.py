@@ -15,11 +15,13 @@ import pprint
 
 import os
 from groq import Groq
-from services.api.app import Paper, Papers
+from models import Paper, Papers
 from typing import List
 
 from dotenv import load_dotenv
 load_dotenv()
+
+from codetiming import Timer
 
 #------------------------------------------------------------------------
 class GroqProcesser():
@@ -138,3 +140,14 @@ class GroqProcesser():
 
     def validate(self):
         pass
+
+if __name__ == "__main__":
+    with Timer(text="\nTotal elapsed time: {:.1f}"):
+        papers = [
+            Paper(doi= "10.1186/1756-8722-6-59"),
+            Paper(doi="10.1046/j.1471-4159.2003.01615.x"),
+            Paper(doi="10.2307/1941948")
+        ]
+        gp = GroqProcesser(papers)
+        gp.fill_in_blanks()
+        print(gp.papers)
