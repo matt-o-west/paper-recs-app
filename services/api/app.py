@@ -29,6 +29,8 @@ class Paper(BaseModel):
     abstract: Optional[str] = None
     references: List[str] = []
     cited_by: List[str] = []
+    status: Optional[int] = None  # HTTP status code
+    message: Optional[str] = None  # Message for the response
 
 class Papers(BaseModel):
     papers: List[Paper]
@@ -68,7 +70,9 @@ async def recommend_papers(paper_input: PaperInput):
                 references=["doi:10.1145/3383313.3412243"],
                 cited_by=["doi:10.1145/3397271.3401063", "doi:10.1145/3383313.3412245"]
             )
-        ]
+        ],
+        status=200,
+        message="Success",
     )
 
     return mock_papers

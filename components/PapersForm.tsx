@@ -20,25 +20,19 @@ export default function PapersForm() {
     setIsLoading(true)
     setError(null)
 
-    try {
-      // Call route handler
-      const response = await axios.post('/submitPapers', {
-        papers,
-      })
+    const response = await axios.post('/submitPapers', {
+      papers,
+    })
+    console.log('Response:', response)
 
-      if (response.status !== 200) {
-        throw new Error('Failed to submit papers')
-      }
-
-      const data = response.data
-      console.log('Response data:', data)
-      setRecommendations(data)
-    } catch (err) {
-      console.error('Error:', err)
-      setError(err instanceof Error ? err.message : 'An unknown error occurred')
-    } finally {
+    if (response.status !== 200) {
+      setError('Failed to fetch recommendations')
       setIsLoading(false)
+      return
     }
+    setRecommendations(response.data.papers)
+    setIsLoading(false)
+    console.log('Recommendations:', recommendations)
   }
 
   return (

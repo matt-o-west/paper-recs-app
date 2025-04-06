@@ -2,9 +2,10 @@ import { submitPapers } from '@/services/api/api'
 import { NextResponse } from 'next/server'
 
 // If we need a route handler, we can create it here
-export async function POST(req: Request, res: Response) {
+export async function POST(req: Request) {
   const body = await req.json()
   const papers = body.papers
+
   console.log('Papers:', papers)
 
   if (!Array.isArray(papers) || papers.length === 0) {
@@ -25,14 +26,21 @@ export async function POST(req: Request, res: Response) {
     return paper
   })
 
-  // Send the papers to the FastAPI server
-  const response = await submitPapers(formattedPapers)
-  if (response.status !== 200) {
+  try {
+    // This will either return the data or throw an error
+    const response = await submitPapers(formattedPapers)
+
+    // If we got here, it was successful
+    return NextResponse.json(response)
+  } catch (error) {
+    console.error('Error in route handler:', error)
+
     return NextResponse.json(
-      { error: 'Failed to submit papers' },
-      { status: response.status }
+      {
+        error:
+          error instanceof Error ? error.message : 'Failed to process request',
+      },
+      { status: 500 }
     )
   }
-
-  return NextResponse.json(papers)
 }

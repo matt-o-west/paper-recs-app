@@ -22,11 +22,11 @@ export async function submitPapers(papers: string[]) {
       papers,
     })
 
-    console.log('API response:', response.data)
+    //console.log('API response:', response.data)
     return response.data
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      // More detailed error logging
+      // More detailed error logging for debugging
       console.error('API error details:', {
         status: error.response?.status,
         statusText: error.response?.statusText,
