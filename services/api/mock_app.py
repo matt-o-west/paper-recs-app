@@ -48,7 +48,7 @@ def read_item(item_id: int, q: Union[str, None] = None):
     return {"item_id": item_id, "q": q}
 
 # Mock API endpoint
-@app.post("/recommendations/", response_model=Papers)
+@app.post("/test/", response_model=Papers)
 async def recommend_papers(paper_input: PaperInput):
     # Log the received DOIs
     print(f"Received DOIs: {paper_input.papers}")

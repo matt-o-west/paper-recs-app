@@ -5,6 +5,7 @@ import PaperInputs from './PaperInputs'
 import SubmitButton from './SubmitButton'
 import { useState } from 'react'
 import ResultCard from './ResultCard'
+import CopyButton from './CopyButton'
 
 export interface Paper {
   doi: string
@@ -71,7 +72,10 @@ export default function PapersForm() {
       )}
       {recommendations.length > 0 && (
         <div className='mt-8 border-t pt-6'>
-          <h2 className='text-xl font-bold mb-4'>Recommendations:</h2>
+          <span className='flex justify-between items-center'>
+            <h2 className='text-xl font-bold mb-4'>Recommendations:</h2>
+            <CopyButton data={recommendations} />
+          </span>
           <div className='space-y-6'>
             {recommendations.map((paper, index) => (
               <ResultCard
