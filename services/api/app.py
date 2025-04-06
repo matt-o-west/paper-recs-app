@@ -71,7 +71,7 @@ def read_item(item_id: int, q: Union[str, None] = None):
 @app.get("/recommendations", response_model=Papers)
 async def get_recommended():
 
-    return Papers(papers = memory_db["recommended"])
+    return Papers(papers = memory_db["recommended"], status_code=200)
 
 #----------
 #   POST

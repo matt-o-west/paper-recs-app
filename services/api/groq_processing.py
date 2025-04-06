@@ -22,6 +22,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from codetiming import Timer
+import asyncio
+import aiohttp
 
 #------------------------------------------------------------------------
 class GroqProcesser():
@@ -151,3 +153,10 @@ if __name__ == "__main__":
         gp = GroqProcesser(papers)
         gp.fill_in_blanks()
         print(gp.papers)
+
+        doi_list = []
+        for paper in gp.papers:
+            doi_list.append(paper.references)
+            doi_list.append(paper.cited_by)
+        
+        print(doi_list)

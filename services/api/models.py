@@ -17,4 +17,5 @@ class Paper(BaseModel):
 
 class Papers(BaseModel):
     papers: List[Paper]
+    status: int = None
 
