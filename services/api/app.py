@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Union, List
 from dotenv import load_dotenv
+from groq_processing.py import validate
 
 import requests
 import uvicorn
@@ -98,7 +99,8 @@ async def get_recommended():
 #Adds multiple papers
 @app.post("/papers", response_model=Papers)
 def add_papers(papers: Papers):
-
+    
+    validate()
     memory_db["papers"].append(papers["papers"])
 
     return papers
