@@ -58,6 +58,20 @@ export async function submitPapers(doiStrings: string[]) {
   }
 }
 
+// Mock Endpoint
+export async function getPapers(): Promise<Paper[]> {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/papers`)
+    return response.data
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error('API error:', error.response?.data || error.message)
+      throw new Error(`API error: ${error.response?.status || error.message}`)
+    }
+    throw error // Re-throw any other errors
+  }
+}
+
 // Test request
 export async function getHelloWorld(): Promise<
   AxiosResponse<{ Hello: string }>
