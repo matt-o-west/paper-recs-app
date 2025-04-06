@@ -286,11 +286,12 @@ class GroqProcesser():
         return invalid_papers
 
 if __name__ == "__main__":
-    with Timer(text="\nTotal elapsed time: {:.1f}"):
-        papers = [
-            Paper(doi= "10.1677/erc.1.0978"),
-            Paper(doi="10.1016/j.gde.2006.12.005"),
-            Paper(doi="10.1093/jnci/djg123"),
-        ]
-        gp = GroqProcesser(papers)
-        print(gp.return_recommendations())
+    pass
+    # with Timer(text="\nTotal elapsed time: {:.1f}"):
+    #     papers = [
+    #         Paper(doi= "10.1677/erc.1.0978"),
+    #         Paper(doi="10.1016/j.gde.2006.12.005"),
+    #         Paper(doi="10.1093/jnci/djg123"),
+    #     ]
+    #     gp = GroqProcesser(papers)
+    #     print(gp.return_recommendations())
