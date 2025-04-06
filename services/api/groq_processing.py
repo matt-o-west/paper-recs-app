@@ -353,7 +353,7 @@ class GroqProcesser():
         return invalid_papers
 
 if __name__ == "__main__":
-
+    pass
     # with Timer(text="\nTotal elapsed time: {:.1f}"):
     #     papers = [
     #         Paper(doi= "10.1677/erc.1.0978"),
