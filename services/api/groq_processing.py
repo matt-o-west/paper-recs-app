@@ -15,6 +15,7 @@ import pprint
 
 import os
 from groq import Groq
+from requests import get
 from services.api.app import Paper, Papers
 from typing import List
 from app.py import memory_db
@@ -120,17 +121,12 @@ class GroqProcesser():
                 if data and 'count' in data[0]:
                     citation_count = data[0]['count']
                     citation_number[doi] = citation_count
-                else:
-                    raise HTTPException(response.status_code, detail="Citation Number not Found in OpenCitations Database.")
-            else:
-                    raise HTTPException(response.status_code, detail="Citation Number not Found in OpenCitations Database.")
         top_5_papers = dict(sorted(citation_number.items(), key=lambda item: item[1], reverse=True)[:5])
         paper_number = (len(top_5_papers))
         if paper_number == 5:
             return_recommendations(top_5_papers)
         else:
             find_additional_papers()
-        pass
 
     def find_additional_papers(self):
         '''
