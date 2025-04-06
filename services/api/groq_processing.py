@@ -162,7 +162,23 @@ class GroqProcesser():
         '''
         4. Iterate through DOIs, use OpenCitations API to see how many times it was referenced. Use this to identify the most important papers?
         '''
-        pass
+        citation_number = {}
+        for paper in self.paper:
+            doi = paper["doi"]
+            APICALL = f"https://opencitations.net/api/v1/citation-count/{doi}"
+            HTTP_HEADERS = {"authorization": "feebb3c7-2e1f-4337-a7fb-c32a773cba1a"}
+            response = get(APICALL, headers=HTTP_HEADERS)
+            if response.status_code == 200:
+                data = response.json()
+                if data and 'count' in data[0]:
+                    citation_count = data[0]['count']
+                    citation_number[doi] = citation_count
+        top_5_papers = dict(sorted(citation_number.items(), key=lambda item: item[1], reverse=True)[:5])
+        paper_number = (len(top_5_papers))
+        if paper_number == 5:
+            return_recommendations(top_5_papers)
+        else:
+            find_additional_papers()
 
     def find_additional_papers(self):
         '''
@@ -174,4 +190,26 @@ class GroqProcesser():
         pass
 
     def validate(self):
+        invalid_papers = []
+        for paper in self.paper:
+            doi = paper["doi"]
+            APICALL = f"https://opencitations.net/api/v1/citation-count/{doi}"
+            HTTP_HEADERS = {"authorization": "feebb3c7-2e1f-4337-a7fb-c32a773cba1a"}
+            response = get(APICALL, headers=HTTP_HEADERS)
+            if response.status_code != 200:
+                invalid_papers.append(doi)
+                raise HTTPException(status_code=502, detail="DOI not found in OpenCitations API")
+        for paper in self.paper:
+            doi = paper["doi"]
+            doi_url = doi.replace("/", "%2F")
+            url = f'https://api.crossref.org/works/{doi_url}'
+            r = requests.get(url)
+            if r.status_code != 200:
+                raise HTTPException(status_code=502, detail="DOI not found in CrossRef API")
+        if len(invalid_papers) > 1:
+            return "Here is a list of invalid papers: {invalid_papers}"
+        if len(invalid_papers) == 0:
+            for paper in self.paper:
+                memory_db['papers'].append(paper)
+            return self.paper
         
