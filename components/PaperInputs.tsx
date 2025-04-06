@@ -1,7 +1,4 @@
-import { useState } from 'react'
-
-export default function PaperInputs() {
-  const [papers, setPapers] = useState<string[]>([''])
+export default function PaperInputs({ papers, setPapers }) {
   const handleChange = (index: number, value: string) => {
     const newPapers = [...papers]
     newPapers[index] = value
@@ -28,8 +25,11 @@ export default function PaperInputs() {
         <div key={index} className='flex items-center gap-2'>
           <input
             type='text'
+            name={`paper-${index}`} // Use this to gather the input data
+            placeholder='Enter DOI or URL'
             value={paper}
             onChange={(e) => handleChange(index, e.target.value)}
+            required
             className='border border-gray-300 rounded px-2 py-1 w-full'
           />
           <button
@@ -41,6 +41,13 @@ export default function PaperInputs() {
           </button>
         </div>
       ))}
+      {/* Hidden input to store all papers as JSON */}
+      <input
+        type='hidden'
+        name='papers'
+        value={JSON.stringify(papers.filter((p) => p.trim() !== ''))}
+      />
+
       <button
         type='button'
         onClick={handleAddPaper}
