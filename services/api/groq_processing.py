@@ -8,19 +8,23 @@
 '''
 #------------------------------------------------------------------------
 #IMPORTS AND SET UP
-from fastapi import FastAPI, HTTPException
+from fastapi import HTTPException
 import requests
 import json
 import pprint
 
 import os
 from groq import Groq
-from services.api.app import Paper, Papers
+from models import Paper, Papers
 from typing import List
 from app.py import memory_db
 
 from dotenv import load_dotenv
 load_dotenv()
+
+from codetiming import Timer
+import asyncio
+import aiohttp
 
 #------------------------------------------------------------------------
 class GroqProcesser():
@@ -33,9 +37,9 @@ class GroqProcesser():
             We can get its name + abstract from the CrossRef API 
             We can get a list of articles that cite this paper and a list of articles referenced by this paper'''
         for id, paper in enumerate(self.papers):
-            paper.id = id #Will make it easier for the LLM to distinguish between separate papers
+            paper.id = id + 1 #Will make it easier for the LLM to distinguish between separate papers
             
-            doi = paper["doi"]
+            doi = paper.doi
 
             #---------------
             #   CROSS-REF
@@ -44,13 +48,7 @@ class GroqProcesser():
             doi_url = doi.replace("/", "%2F")
             url = f'https://api.crossref.org/works/{doi_url}'
 
-            r = requests.get(url)
-            print(f"The status code is: {r.status_code}")
-
-            if r.status_code == 200:
-                js = r.json()
-            else:
-                raise HTTPException(status_code=502, detail="DOI not found in CrossRef API")
+            js = self.api_call(url, 'CrossRef')
             
             if 'title' in js["message"]:
                 paper.name = js["message"]["title"]
@@ -64,16 +62,14 @@ class GroqProcesser():
             #HOW-TO: https://opencitations.net/index/api/v2
             TOKEN = os.environ.get("OC_API_KEY")
             REF_API_CALL = f"https://opencitations.net/index/api/v2/references/doi:{doi}"
-            CITE_API_CALL = f"https://opencitations.net/index/api/v2/citation/doi:{doi}"
+            CITE_API_CALL = f"https://opencitations.net/index/api/v2/citations/doi:{doi}"
             HTTP_HEADERS = {"authorization": TOKEN}
 
-            r = requests.get(REF_API_CALL, headers=HTTP_HEADERS)
-            print(f"The status code is: {r.status_code}")
+            js = self.api_call(REF_API_CALL, 'OpenCitations', HTTP_HEADERS)
+            self.add_related_paper_dois(js, "cited", paper.references)
 
-            if r.status_code == 200:
-                js = r.json()
-            else:
-                raise HTTPException(status_code=502, detail="DOI not found in OpenCitations API")
+            js = self.api_call(CITE_API_CALL, 'OpenCitations', HTTP_HEADERS)
+            self.add_related_paper_dois(js, "citing", paper.cited_by)
     
     def identify_common_dois(self):
         '''
@@ -189,6 +185,31 @@ class GroqProcesser():
     def return_recommendations(self):
         pass
 
+    #------------------------------------------------------------------------
+    #HELPER FUNCTIONS
+    def api_call(self, url: str, api_name: str, http_headers: str = None):
+        if http_headers:
+            r = requests.get(url)
+        else:
+            r = requests.get(url, headers = http_headers)
+        print(f"The status code is: {r.status_code}")
+
+        if r.status_code == 200:
+            js = r.json()
+        else:
+            raise HTTPException(status_code=502, detail=f"DOI not found in {api_name} API")
+        
+        return js
+    
+    def add_related_paper_dois(self, js, relation: str, lst: List[str]):
+        #The "cited" and "citing" keys have a string with multiple ID types associated with it
+        for item in js:
+                citation = item[relation].split()
+                for id_format in citation:
+                    if id_format[0] == 'd':
+                        lst.append(id_format[4:])
+                        break
+
     def validate(self):
         invalid_papers = []
         for paper in self.paper:
@@ -212,4 +233,21 @@ class GroqProcesser():
             for paper in self.paper:
                 memory_db['papers'].append(paper)
             return self.paper
+
+if __name__ == "__main__":
+    with Timer(text="\nTotal elapsed time: {:.1f}"):
+        papers = [
+            Paper(doi= "10.1186/1756-8722-6-59"),
+            Paper(doi="10.1046/j.1471-4159.2003.01615.x"),
+            Paper(doi="10.2307/1941948")
+        ]
+        gp = GroqProcesser(papers)
+        gp.fill_in_blanks()
+        print(gp.papers)
+
+        doi_list = []
+        for paper in gp.papers:
+            doi_list.append(paper.references)
+            doi_list.append(paper.cited_by)
         
+        print(doi_list)
