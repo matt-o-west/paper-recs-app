@@ -7,7 +7,7 @@ export default async function TestPage() {
     const response = await getHelloWorld()
 
     const data = response.data
-    console.log(response)
+    console.log('Test response: ', data)
 
     return (
       <div className='p-8 mt-20 max-w-md mx-auto bg-white rounded shadow-md'>

@@ -81,6 +81,8 @@ async def get_recommended():
 #Adds multiple papers
 @app.post("/papers", response_model=Papers)
 def add_papers(papers: Papers):
+    # Log the received DOIs
+    print(f"Received DOIs: {papers}")
     
     invalid_papers = GroqProcesser.validate(papers)
 
