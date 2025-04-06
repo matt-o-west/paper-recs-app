@@ -63,10 +63,11 @@ def read_item(item_id: int, q: Union[str, None] = None):
  |_|   |_| |___/_/ \_\_|\_| |_| |___\___| |_|  |_|\___/|___/|___|____|___/
 '''
 class Paper(BaseModel):
+    id: int = None
     doi: str
     name: str = None
     abstract: str = None
-    references: List[str] = []
+    references: List[str] = [] #list of DOIs
     cited_by: List[str] = []
 
 class Papers(BaseModel):
