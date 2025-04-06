@@ -15,7 +15,7 @@ import pprint
 
 import os
 from groq import Groq
-from app import Paper, Papers
+from methods import Paper, Papers
 from typing import List
 
 from dotenv import load_dotenv
