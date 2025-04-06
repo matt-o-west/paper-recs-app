@@ -7,7 +7,7 @@ export default function SubmitButton() {
     <button
       type='submit'
       aria-disabled={pending}
-      className='bg-slate-500 text-white px-4 py-2 rounded-sm hover:bg-slate-400'
+      className='bg-indigo-700 text-white px-4 py-2 rounded-sm hover:bg-indigo-400'
     >
       Submit
     </button>

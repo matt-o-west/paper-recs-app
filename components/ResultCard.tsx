@@ -18,30 +18,25 @@ export default function ResultCard({ paper, index }: ResultCardProps) {
   return (
     <div className='p-6 bg-slate-100 rounded-lg shadow-md mb-4 border border-gray-100 hover:shadow-lg transition-shadow'>
       <div className='flex items-start gap-3'>
-        <div className='bg-blue-200 text-blue-800 font-bold rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0'>
+        <div className='bg-indigo-200 text-indigo-800 font-bold rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0'>
           {index + 1}
         </div>
 
         <div className='flex-1'>
-          {/* Paper title */}
           <h2 className='text-xl font-bold text-gray-800 mb-2'>
             {name || doi}
           </h2>
-
-          {/* DOI link */}
           <a
             href={formatDoiLink(doi)}
             target='_blank'
             rel='noopener noreferrer'
-            className='text-blue-600 text-sm hover:underline mb-3 inline-block'
+            className='text-indigo-600 text-sm hover:underline mb-3 inline-block'
           >
             {doi}
           </a>
-
           {abstract && (
             <p className='text-gray-700 text-sm mb-4'>{paper.abstract}</p>
           )}
-
           <div className='flex flex-wrap gap-2 mb-4'>
             {cited_by && cited_by.length > 0 && (
               <span className='bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full'>
@@ -58,7 +53,7 @@ export default function ResultCard({ paper, index }: ResultCardProps) {
           {/* References list (collapsible) */}
           {references && references.length > 0 && (
             <details className='mb-2'>
-              <summary className='cursor-pointer text-sm font-medium text-blue-600 hover:text-blue-800'>
+              <summary className='cursor-pointer text-sm font-medium text-indigo-600 hover:text-indigo-800'>
                 View references
               </summary>
               <ul className='mt-2 pl-5 text-xs text-gray-600 list-disc'>
@@ -77,10 +72,10 @@ export default function ResultCard({ paper, index }: ResultCardProps) {
               </ul>
             </details>
           )}
-
+          {/* Citing papers list (collapsible) */}
           {cited_by && cited_by.length > 0 && (
             <details>
-              <summary className='cursor-pointer text-sm font-medium text-blue-600 hover:text-blue-800'>
+              <summary className='cursor-pointer text-sm font-medium text-indigo-600 hover:text-indigo-800'>
                 View citing papers
               </summary>
               <ul className='mt-2 pl-5 text-xs text-gray-600 list-disc'>
@@ -105,7 +100,7 @@ export default function ResultCard({ paper, index }: ResultCardProps) {
               href={formatDoiLink(paper.doi)}
               target='_blank'
               rel='noopener noreferrer'
-              className='inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm transition-colors'
+              className='inline-block bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded text-sm transition-colors'
             >
               View Paper
             </Link>

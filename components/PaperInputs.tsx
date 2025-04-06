@@ -1,3 +1,5 @@
+import RemoveButton from './RemoveButton'
+
 export default function PaperInputs({ papers, setPapers }) {
   const handleChange = (index: number, value: string) => {
     const newPapers = [...papers]
@@ -9,14 +11,10 @@ export default function PaperInputs({ papers, setPapers }) {
     if (papers.length >= 5) {
       // Replace this with a modal or toast notification
       alert('You can only add up to 5 papers.')
+      return
     }
 
     setPapers([...papers, ''])
-  }
-
-  const handleRemovePaper = (index: number) => {
-    const newPapers = papers.filter((_, i) => i !== index)
-    setPapers(newPapers)
   }
 
   return (
@@ -26,19 +24,13 @@ export default function PaperInputs({ papers, setPapers }) {
           <input
             type='text'
             name={`paper-${index}`} // Use this to gather the input data
-            placeholder='Enter DOI or URL'
+            placeholder='Enter DOI ID'
             value={paper}
             onChange={(e) => handleChange(index, e.target.value)}
             required
             className='border border-gray-300 rounded px-2 py-1 w-full'
           />
-          <button
-            type='button'
-            onClick={() => handleRemovePaper(index)}
-            className='bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600'
-          >
-            Remove
-          </button>
+          <RemoveButton index={index} papers={papers} setPapers={setPapers} />
         </div>
       ))}
       {/* Hidden input to store all papers as JSON */}

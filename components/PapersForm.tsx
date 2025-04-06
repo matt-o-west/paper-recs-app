@@ -43,7 +43,7 @@ export default function PapersForm() {
   return (
     <div
       className={`${
-        recommendations.length > 0 ? 'grid-cols-2' : 'grid-cols-1'
+        recommendations.length > 0 ? 'grid-cols-2' : 'grid-cols-1 md:min-w-xl'
       } p-8 mx-auto bg-slate-800 rounded-md max-w-md md:max-w-5xl`}
     >
       <form
