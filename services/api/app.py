@@ -71,7 +71,8 @@ def read_item(item_id: int, q: Union[str, None] = None):
 #Return all recommended papers; this function is asynchronous because external APIs will be called within it (a process that takes time)
 @app.get("/recommendations", response_model=Papers)
 async def get_recommended():
-
+    gp = GroqProcesser(memory_db["papers"])
+    memory_db["recommended"] = await gp.get_recommendations()
     return Papers(papers = memory_db["recommended"], status_code=200)
 
 #----------
@@ -88,7 +89,7 @@ def add_papers(papers: Papers):
         return Papers(papers = invalid_papers, status_code=400)
     else:
         memory_db["papers"].append(papers["papers"])
-        return papers
+        return Papers(papers = papers, status_code=200)
 
 #------------------------------------------------------------------------
 

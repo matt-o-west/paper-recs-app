@@ -221,9 +221,17 @@ class GroqProcesser():
         
     
     def return_recommendations(self):
+        self.fill_in_blanks()
+        self.identify_common_dois()
+        self.identify_important_papers()
+        
         if len(self.recommendations) != 5:
             self.find_additional_papers()
         
+        result = []
+        for paper in self.recommendations:
+            result.append(Paper(doi=paper))
+            
         return self.recommendations
 
     #------------------------------------------------------------------------
