@@ -15,7 +15,7 @@ import pprint
 
 import os
 from groq import Groq
-from services.api.app import Paper, Papers
+from app import Paper, Papers
 from typing import List
 
 from dotenv import load_dotenv
@@ -123,13 +123,17 @@ class GroqProcesser():
         # Call the Groq API
         try:
             completion = client.chat.completions.create(
-                model="mixtral-8x7b-32768",  # Using a model with large context window
+                model="meta-llama/llama-4-scout-17b-16e-instruct",  # Using a model with large context window
                 messages=[
                     {"role": "system", "content": "You are an expert in academic literature analysis. Your task is to identify overlapping references between papers and explain their significance."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.2,  # Lower temperature for more focused responses
-                max_tokens=4000
+                max_completion_tokens=1024,
+                top_p=1,
+                stream=False,
+                response_format={"type": "json_object"},
+                stop=None,
             )
             
             # Parse the response

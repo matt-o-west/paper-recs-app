@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 import requests
 import uvicorn
 import json
-import services.api.groq_processing as groq_processing
+from fastapi import FastAPI, HTTPException
 
 
 # Load the env variables
