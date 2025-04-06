@@ -15,7 +15,6 @@ import pprint
 
 import os
 from groq import Groq
-from requests import get
 from services.api.app import Paper, Papers
 from typing import List
 from app.py import memory_db
@@ -26,7 +25,7 @@ load_dotenv()
 #------------------------------------------------------------------------
 class GroqProcesser():
     def __init__(self, papers: Papers):
-        '''1. From the front end, we’ll receive a list of Papers (with their DOIs) that the user has submitted.'''
+        '''1. From the front end, we'll receive a list of Papers (with their DOIs) that the user has submitted.'''
         self.papers = papers
     
     def fill_in_blanks(self):
@@ -80,57 +79,94 @@ class GroqProcesser():
         '''
         3. GROQ: Send multiple json payload/file to the LLM and ask it to identify DOIs that overlap between the papers
         '''
-        '''
-        JSON File will look like this
-        [
-            {
-            id: 1
-            doi: "DOI",
-            name: "NAME",
-            abstract: "ABSTRACT....",
-            references: ["DOI1", "DOI2", "DOI3", ...],
-            cited_by: ["DOI1", "DOI2", "DOI3", ...]
-            },
-
-            {
-            id: 2
-            doi: "DOI",
-            name: "NAME",
-            abstract: "ABSTRACT....",
-            references: ["DOI1", "DOI2", "DOI3", ...],
-            cited_by: ["DOI1", "DOI2", "DOI3", ...]
-            },
-
-            ...
-        ]
-        '''
-        pass
+        # Get the Groq API key from environment variables
+        groq_api_key = os.environ.get("GROQ_API_KEY")
+        if not groq_api_key:
+            raise HTTPException(status_code=500, detail="GROQ_API_KEY environment variable not set")
+        
+        # Initialize the Groq client
+        client = Groq(api_key=groq_api_key)
+        
+        # Convert papers to the format expected by the LLM
+        papers_data = []
+        for paper in self.papers:
+            paper_dict = {
+                "id": paper.id,
+                "doi": paper.doi,
+                "name": paper.name,
+                "abstract": paper.abstract,
+                "references": paper.references,
+                "cited_by": paper.cited_by
+            }
+            papers_data.append(paper_dict)
+        
+        # Create the prompt for the LLM
+        prompt = f"""
+        Analyze the following list of academic papers and identify DOIs that appear in multiple papers (either in references or cited_by lists).
+        For each overlapping DOI, explain why it's significant in the context of these papers.
+        
+        Papers data:
+        {json.dumps(papers_data, indent=2)}
+        
+        Please provide your analysis in the following JSON format:
+        {{
+            "overlapping_dois": [
+                {{
+                    "doi": "DOI_VALUE",
+                    "appears_in_papers": [PAPER_IDS],
+                    "significance": "Explanation of why this paper is significant in the context of the provided papers"
+                }}
+            ],
+            "analysis": "Overall analysis of the relationships between these papers"
+        }}
+        """
+        
+        # Call the Groq API
+        try:
+            completion = client.chat.completions.create(
+                model="meta-llama/llama-4-scout-17b-16e-instruct",  # Using a model with large context window
+                messages=[
+                    {"role": "system", "content": "You are an expert in academic literature analysis. Your task is to identify overlapping references between papers and explain their significance."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.2,  # Lower temperature for more focused responses
+                max_completion_tokens=1024,
+                top_p=1,
+                stream=False,
+                response_format={"type": "json_object"},
+                stop=None,
+            )
+            
+            # Parse the response
+            response_text = completion.choices[0].message.content
+            
+            # Extract the JSON part from the response
+            try:
+                # Find JSON content between curly braces
+                json_start = response_text.find('{')
+                json_end = response_text.rfind('}') + 1
+                if json_start >= 0 and json_end > json_start:
+                    json_str = response_text[json_start:json_end]
+                    result = json.loads(json_str)
+                    return result
+                else:
+                    raise ValueError("No valid JSON found in the response")
+            except json.JSONDecodeError:
+                # If the response isn't valid JSON, return it as is
+                return {"raw_response": response_text}
+                
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error calling Groq API: {str(e)}")
 
     def identify_important_papers(self):
         '''
         4. Iterate through DOIs, use OpenCitations API to see how many times it was referenced. Use this to identify the most important papers?
         '''
-        citation_number = {}
-        for paper in self.paper:
-            doi = paper["doi"]
-            APICALL = f"https://opencitations.net/api/v1/citation-count/{doi}"
-            HTTP_HEADERS = {"authorization": "feebb3c7-2e1f-4337-a7fb-c32a773cba1a"}
-            response = get(APICALL, headers=HTTP_HEADERS)
-            if response.status_code == 200:
-                data = response.json()
-                if data and 'count' in data[0]:
-                    citation_count = data[0]['count']
-                    citation_number[doi] = citation_count
-        top_5_papers = dict(sorted(citation_number.items(), key=lambda item: item[1], reverse=True)[:5])
-        paper_number = (len(top_5_papers))
-        if paper_number == 5:
-            return_recommendations(top_5_papers)
-        else:
-            find_additional_papers()
+        pass
 
     def find_additional_papers(self):
         '''
-        5. GROQ: If we don’t have at least 5 papers after going through the previous step, then ask the LLM to recommend X number of papers related to the names of each of the papers the user submitted
+        5. GROQ: If we don't have at least 5 papers after going through the previous step, then ask the LLM to recommend X number of papers related to the names of each of the papers the user submitted
         '''
         pass
     
@@ -138,25 +174,4 @@ class GroqProcesser():
         pass
 
     def validate(self):
-        invalid_papers = []
-        for paper in self.paper:
-            doi = paper["doi"]
-            APICALL = f"https://opencitations.net/api/v1/citation-count/{doi}"
-            HTTP_HEADERS = {"authorization": "feebb3c7-2e1f-4337-a7fb-c32a773cba1a"}
-            response = get(APICALL, headers=HTTP_HEADERS)
-            if response.status_code != 200:
-                invalid_papers.append(doi)
-                raise HTTPException(status_code=502, detail="DOI not found in OpenCitations API")
-        for paper in self.paper:
-            doi = paper["doi"]
-            doi_url = doi.replace("/", "%2F")
-            url = f'https://api.crossref.org/works/{doi_url}'
-            r = requests.get(url)
-            if r.status_code != 200:
-                raise HTTPException(status_code=502, detail="DOI not found in CrossRef API")
-        if len(invalid_papers) > 1:
-            return "Here is a list of invalid papers: {invalid_papers}"
-        if len(invalid_papers) == 0:
-            for paper in self.paper:
-                memory_db['papers'].append(paper)
-            return self.paper
+        

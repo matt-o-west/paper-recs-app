@@ -17,7 +17,7 @@ from groq_processing.py import validate
 import requests
 import uvicorn
 import json
-import services.api.groq_processing as groq_processing
+from fastapi import FastAPI, HTTPException
 
 
 # Load the env variables
