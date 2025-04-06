@@ -39,47 +39,47 @@ class GroqProcesser():
         self.oc_api_key = os.environ.get("OC_API_KEY")
         if not self.oc_api_key:
             raise HTTPException(status_code=500, detail="OC_API_KEY environment variable not set")
-    
-    def fill_in_blanks(self):
-        '''2. For each DOI…
+
+    #-----------------------------------
+    '''2. For each DOI…
             We can get its name + abstract from the CrossRef API 
             We can get a list of articles that cite this paper and a list of articles referenced by this paper'''
-        for id, paper in enumerate(self.papers):
-            paper.id = id + 1 #Will make it easier for the LLM to distinguish between separate papers
+    async def fill_task(self, 
+                   name, work_queue, 
+                   api_name: str, url: str, 
+                   subroutine = None, extra_param = None,
+                   token: str = None):
+        timer = Timer(text=f"Task {name} elapsed time: {{:.1f}}")
+       
+        async with aiohttp.ClientSession() as session:
             
-            doi = paper.doi
+            while not work_queue.empty():
+                paper = await work_queue.get()
+                doi = paper.doi
+                doi_url = doi.replace("/", "%2F")
+                url = f'{url}{doi_url}'
+                print(f"Task {name} getting URL: {doi}")
 
-            #---------------
-            #   CROSS-REF
-            #---------------
-            #HOW-TO: https://gitlab.com/crossref/tutorials/intro-to-crossref-api-using-python, https://api.crossref.org/swagger-ui/index.html, https://www.crossref.org/documentation/retrieve-metadata/rest-api/
-            doi_url = doi.replace("/", "%2F")
-            url = f'https://api.crossref.org/works/{doi_url}'
+                headers = None
+                if token:
+                    headers = {"authorization": token}
+                
+                timer.start()
+                async with session.get(url, headers=headers) as response:
+                    r = response
+                    if r.status == 200:
+                        js = await r.json()
+                    else:
+                        print(r.status)
+                        raise HTTPException(status_code=502, detail=f"{doi} not found in {api_name} API")
+                    
+                    if subroutine:
+                        subroutine(js, paper, extra_param)
+                
+                timer.stop()
 
-            js = self.api_call(url, 'CrossRef')
-            
-            if 'title' in js["message"]:
-                paper.name = js["message"]["title"]
-            
-            if 'abstract' in js["message"]:
-                paper.abstract = js["message"]["abstract"]
-            
-            #---------------------
-            #   OPEN-CITATIONS
-            #---------------------
-            #HOW-TO: https://opencitations.net/index/api/v2
-            
 
-            REF_API_CALL = f"https://opencitations.net/index/api/v2/references/doi:{doi}"
-            CITE_API_CALL = f"https://opencitations.net/index/api/v2/citations/doi:{doi}"
-            HTTP_HEADERS = {"authorization": self.oc_api_key}
-
-            js = self.api_call(REF_API_CALL, 'OpenCitations', HTTP_HEADERS)
-            self.add_related_paper_dois(js, "cited", paper.references)
-
-            js = self.api_call(CITE_API_CALL, 'OpenCitations', HTTP_HEADERS)
-            self.add_related_paper_dois(js, "citing", paper.cited_by)
-    
+    #-----------------------------------
     def identify_common_dois(self):
         '''
         3. GROQ: Send multiple json payload/file to the LLM and ask it to identify DOIs that overlap between the papers
@@ -187,6 +187,8 @@ class GroqProcesser():
         print(self.recommendations)
         return top_5_papers
 
+
+    #-----------------------------------
     def find_additional_papers(self):
         '''
         5. GROQ: If we don't have at least 5 papers after going through the previous step, then ask the LLM to recommend X number of papers related to the names of each of the papers the user submitted
@@ -213,45 +215,110 @@ class GroqProcesser():
             ],
             model="llama-3.3-70b-versatile",
         )
+        print(chat_completion.choices[0].message.content)
 
         papers = (chat_completion.choices[0].message.content).split()
         self.recommendations.extend(papers)
         print(self.recommendations)
         return papers
         
-    
-    def return_recommendations(self):
-        self.fill_in_blanks()
+
+    #-----------------------------------
+    async def return_recommendations(self):
+        """
+        Step 1
+        """
+        # Create the queue of work
+        cr_queue = asyncio.Queue()
+        occ_queue = asyncio.Queue()
+        ocr_queue = asyncio.Queue()
+
+        # Put some work in the queue
+        for paper in self.papers:
+            await cr_queue.put(paper)
+            await occ_queue.put(paper)
+            await ocr_queue.put(paper)
+        
+        # Create a list to hold all tasks
+        tasks = []
+        task_marker = 0
+
+        for _ in range(len(self.papers)):
+            tasks.append(
+                asyncio.create_task(self.fill_task(str(task_marker), cr_queue, "CrossRef", "https://api.crossref.org/works/", self.get_name_and_abstract)))
+            task_marker += 1
+
+            tasks.append(
+                asyncio.create_task(self.fill_task(str(task_marker), occ_queue, "OpenCitations", "https://opencitations.net/index/api/v2/citations/doi:", self.add_related_paper_dois, "citing", self.oc_api_key)))
+            task_marker += 1
+            
+            tasks.append(
+                asyncio.create_task(self.fill_task(str(task_marker), ocr_queue, "OpenCitations", "https://opencitations.net/index/api/v2/references/doi:", self.add_related_paper_dois, "cited", self.oc_api_key)))
+            task_marker += 1
+
+
+        # Run the tasks
+        with Timer(text="\nTotal elapsed time: {:.1f}"):
+
+            await asyncio.gather(
+                #I need to have a large number of these running or else missing data occurs
+                *tasks
+            )
+        
+        """
+        Step 2
+        """
+
         self.identify_common_dois()
         self.identify_important_papers()
         
         if len(self.recommendations) != 5:
             self.find_additional_papers()
         
-        result = []
-        for paper in self.recommendations:
-            result.append(Paper(doi=paper))
+        results_queue = asyncio.Queue()
+
+        results = [Paper(doi=doi) for doi in self.recommendations]
+        for paper in results:
+            await results_queue.put(paper)
         
-        return result
+        #Add names and abstracts to the papers
+        task_marker = 0
+        tasks = []
+        for _ in range(len(results)):
+            tasks.append(
+                asyncio.create_task(self.fill_task(str(task_marker), results_queue, "CrossRef", "https://api.crossref.org/works/", self.get_name_and_abstract)))
+            task_marker += 1
+        
+        # Run the tasks
+        with Timer(text="\nTotal elapsed time: {:.1f}"):
+
+            await asyncio.gather(
+                #I need to have a large number of these running or else missing data occurs
+                *tasks
+            )
+
+        print(results)
+        return results
 
     #------------------------------------------------------------------------
     #HELPER FUNCTIONS
-    def api_call(self, url: str, api_name: str, http_headers: str = None):
-        if http_headers:
-            r = requests.get(url)
-        else:
-            r = requests.get(url, headers = http_headers)
-        print(f"The status code is: {r.status_code}")
-
-        if r.status_code == 200:
-            js = r.json()
-        else:
-            raise HTTPException(status_code=502, detail=f"DOI not found in {api_name} API")
-        
-        return js
+    def get_name_and_abstract(self, js, paper: Paper, ignore=None):
+        #The ignore param is only for the async function
+        if 'title' in js["message"]:
+            paper.name = js["message"]["title"]
+            
+        if 'abstract' in js["message"]:
+            paper.abstract = js["message"]["abstract"]
     
-    def add_related_paper_dois(self, js, relation: str, lst: List[str]):
+    def add_related_paper_dois(self, js, paper: Paper, relation: str):
         #The "cited" and "citing" keys have a string with multiple ID types associated with it
+        if relation == "cited":
+            lst = paper.references
+        elif relation == "citing":
+            lst = paper.cited_by
+        else:
+            raise Exception("Unrecognized relationship")
+
         for item in js:
                 citation = item[relation].split()
                 for id_format in citation:
@@ -286,7 +353,7 @@ class GroqProcesser():
         return invalid_papers
 
 if __name__ == "__main__":
-    pass
+
     # with Timer(text="\nTotal elapsed time: {:.1f}"):
     #     papers = [
     #         Paper(doi= "10.1677/erc.1.0978"),
@@ -295,3 +362,11 @@ if __name__ == "__main__":
     #     ]
     #     gp = GroqProcesser(papers)
     #     print(gp.return_recommendations())
+
+    # papers = [
+    #         Paper(doi= "10.1677/erc.1.0978"),
+    #         Paper(doi="10.1016/j.gde.2006.12.005"),
+    #         Paper(doi="10.1093/jnci/djg123"),]
+    # gp = GroqProcesser(papers)
+    # asyncio.run(gp.return_recommendations())
+    # print(gp.recommendations)
