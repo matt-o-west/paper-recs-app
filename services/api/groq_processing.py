@@ -231,8 +231,8 @@ class GroqProcesser():
         result = []
         for paper in self.recommendations:
             result.append(Paper(doi=paper))
-            
-        return self.recommendations
+        
+        return result
 
     #------------------------------------------------------------------------
     #HELPER FUNCTIONS
@@ -259,7 +259,7 @@ class GroqProcesser():
                         lst.append(id_format[4:])
                         break
     
-    def validate(self, papers: Papers):
+    def validate(papers: Papers):
         '''Validate the DOIs using the OpenCitations API and CrossRef API'''
 
         invalid_papers = []
@@ -291,13 +291,6 @@ if __name__ == "__main__":
             Paper(doi= "10.1677/erc.1.0978"),
             Paper(doi="10.1016/j.gde.2006.12.005"),
             Paper(doi="10.1093/jnci/djg123"),
-            Paper(doi="Pizza")
         ]
         gp = GroqProcesser(papers)
-        print(gp.validate(papers))
-        # gp.fill_in_blanks()
-        # print(gp.papers)
-
-        # print(gp.identify_common_dois())
-        # print(gp.find_additional_papers())
-        # print(gp.recommendations)
+        print(gp.return_recommendations())

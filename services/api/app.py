@@ -17,6 +17,8 @@ from dotenv import load_dotenv
 from groq_processing import GroqProcesser
 import uvicorn
 from models import Paper, Papers
+import json
+from fastapi.encoders import jsonable_encoder
 
 # Load the env variables
 load_dotenv()
@@ -83,20 +85,29 @@ async def get_recommended():
 @app.post("/papers", response_model=Papers)
 def add_papers(papers: Papers):
     
-    invalid_papers = GroqProcesser.validate(papers)
+    invalid_papers = GroqProcesser.validate(papers.papers)
 
     if invalid_papers:
         return Papers(papers = invalid_papers, status_code=400)
     else:
-        memory_db["papers"].append(papers["papers"])
-        return Papers(papers = papers, status_code=200)
+        memory_db["papers"].append(papers.papers)
+        return Papers(papers = papers.papers, status_code=200)
 
 #------------------------------------------------------------------------
 
 print("Starting FastAPI server...")
 
 if __name__ == "__main__":
-    print("Server will be available at http://localhost:8000")
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    # print("Server will be available at http://localhost:8000")
+    # uvicorn.run(app, host="127.0.0.1", port=8000)
+
+    papers = [
+            Paper(doi= "10.1677/erc.1.0978"),
+            Paper(doi="10.1016/j.gde.2006.12.005"),
+            Paper(doi="10.1093/jnci/djg123"),
+        ]
+    
+    print(add_papers(Papers(papers = papers)))
+    
 
 #------------------------------------------------------------------------
